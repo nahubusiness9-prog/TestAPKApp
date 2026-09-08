@@ -8,17 +8,40 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Get files
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Create Android project
+      - name: Create clean Android project
         run: |
-          mkdir -p app/src/main/java/com/example/testapkapp
-          mkdir -p app/src/main/res/values
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
 
-          cp AndroidManifest.xml app/src/main/AndroidManifest.xml
-          cp MainActivity.kt app/src/main/java/com/example/testapkapp/MainActivity.kt
-          cp styles.xml app/src/main/res/values/styles.xml
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.name = "TestAPKApp"
+          include(":app")
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.5.2' apply false
+              id 'org.jetbrains.kotlin.android' version '1.9.24' apply false
+          }
+          EOF
+
+          mkdir -p app/src/main/java/com/example/testapkapp
 
           cat > app/build.gradle <<'EOF'
           plugins {
@@ -38,31 +61,42 @@ jobs:
                   versionName '1.0'
               }
           }
-
-          dependencies {
-              implementation 'androidx.core:core-ktx:1.15.0'
-              implementation 'androidx.appcompat:appcompat:1.7.0'
-              implementation 'com.google.android.material:material:1.12.0'
-          }
           EOF
 
-          cat > build.gradle <<'EOF'
-          buildscript {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application
+                  android:theme="@android:style/Theme.Material.Light.NoActionBar"
+                  android:label="Test APK App">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
 
-              dependencies {
-                  classpath 'com.android.tools.build:gradle:8.5.2'
-                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24'
-              }
-          }
+          cat > app/src/main/java/com/example/testapkapp/MainActivity.kt <<'EOF'
+          package com.example.testapkapp
 
-          allprojects {
-              repositories {
-                  google()
-                  mavenCentral()
+          import android.app.Activity
+          import android.os.Bundle
+          import android.widget.TextView
+
+          class MainActivity : Activity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+
+                  val text = TextView(this)
+                  text.text = "🔥 TEST APK WORKS!\\n\\nBuilt without Android Studio."
+                  text.textSize = 24f
+                  text.setPadding(40, 80, 40, 40)
+
+                  setContentView(text)
               }
           }
           EOF
@@ -81,7 +115,7 @@ jobs:
       - name: Build APK
         run: gradle assembleDebug
 
-      - name: Give me the APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: TestAPK
